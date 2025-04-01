@@ -1,9 +1,3 @@
-filebeat.inputs:
-- type: filestream
-  id: default-filestream
-  paths:
-    - ingest_data/*.log
-
 filebeat.autodiscover:
   providers:
     - type: docker

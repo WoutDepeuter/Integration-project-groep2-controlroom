@@ -1,8 +1,0 @@
-Error ID,System ID,Timestamp,Error Type,Severity,Error Message,Stack Trace,Resolution Status,Resolution Notes,Resolved Timestamp,Resolved By
-1,101,2025-03-25 10:00:00,Runtime,Critical,"NullPointerException at line 42","at com.example.app.Main.main(Main.java:42)","New","Investigating issue","", 
-2,102,2025-03-25 10:05:00,Database,Warning,"Connection timeout while querying DB","at com.example.db.Connection.query(Connection.java:112)","In Progress","Investigating DB connectivity","", 
-3,103,2025-03-25 10:10:00,Network,Info,"Connection established successfully","N/A","Resolved","Issue resolved after restarting router","2025-03-25 10:15:00","John Doe"
-4,101,2025-03-25 10:20:00,FileSystem,Critical,"Disk space running low on server","at com.example.app.DiskMonitor.checkSpace(DiskMonitor.java:58)","Resolved","Increased disk space on server","2025-03-25 10:25:00","Alice Smith"
-5,104,2025-03-25 10:30:00,Application,Warning,"App crashed after update","at com.example.app.UpdateManager.update(UpdateManager.java:78)","New","Waiting for patch release","", 
-6,102,2025-03-25 10:35:00,Security,Critical,"SQL Injection vulnerability detected","at com.example.security.SQLInjectionScanner.scan(SQLInjectionScanner.java:154)","In Progress","Fixing vulnerability with team","", 
-7,105,2025-03-25 10:40:00,Runtime,Info,"Application started successfully","N/A","Resolved","No issues found","2025-03-25 10:45:00","Bob Lee"
