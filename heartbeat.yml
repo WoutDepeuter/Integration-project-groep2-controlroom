@@ -1,0 +1,17 @@
+
+heartbeat.monitors:
+  - type: http
+    urls: ['http://kibana:5601']
+    schedule: "@every 10s"
+
+output.elasticsearch:
+  hosts: ['https://es01:9200']
+  username: elastic
+  password: ${ELASTIC_PASSWORD}
+  ssl:
+    certificate: "certs/es01/es01.crt"
+    certificate_authorities: "certs/ca/ca.crt"
+    key: "certs/es01/es01.key"
+
+setup.kibana:
+  host: "kibana:5601"
