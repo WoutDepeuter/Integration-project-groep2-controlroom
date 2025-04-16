@@ -23,7 +23,7 @@ services:
     image: grafana/grafana-oss
     user: "1000:1000"
     ports:
-      - "3000:3000"
+      - "30071:3000"
     networks:
       - monitoring
     environment:
