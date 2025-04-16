@@ -45,7 +45,7 @@ services:
       - prometheus-data:/prometheus
     command:
       - --config.file=/etc/prometheus/prometheus.yml
-      - --log.level=warn
+      - --log.level=info
 
 volumes:
   prometheus-data:
