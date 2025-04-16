@@ -1,0 +1,59 @@
+services:
+
+  loki:
+    image: grafana/loki:latest
+    user: "1000:1000"
+    command: -config.file=/etc/loki/local-config.yaml
+    volumes:
+      - ./loki.yaml:/etc/loki/local-config.yaml
+      - loki-data:/var/lib/loki
+    networks:
+      - monitoring
+
+  alloy:
+    image: grafana/alloy:latest
+    volumes:
+      - ./alloy.river:/etc/alloy/config.alloy
+      - /var/run/docker.sock:/var/run/docker.sock
+      - alloy-data:/var/lib/alloy/data
+    networks:
+      - monitoring
+
+  grafana:
+    image: grafana/grafana-oss
+    user: "1000:1000"
+    ports:
+      - "3000:3000"
+    networks:
+      - observability
+    environment:
+      - "GF_USERS_DEFAULT_THEME=light"
+      - "GF_SECURITY_ADMIN_PASSWORD=ThisPasswordCantBeGuessed123"
+      - "GF_LOG_LEVEL=warn"
+    volumes:
+      - ./dashboards:/etc/dashboards
+      - ./provisioning:/etc/grafana/provisioning
+      - grafana-data:/var/lib/grafana
+
+  prometheus-metrics:
+    image: prom/prometheus
+    networks:
+      - observability
+      - attendify_net
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus-data:/prometheus
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --log.level=warn
+
+volumes:
+  prometheus-data:
+  grafana-data:
+  alloy-data:
+  loki-data:
+
+networks:
+  monitoring:
+  attendify_net:
+    external: true

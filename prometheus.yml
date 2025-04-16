@@ -1,0 +1,7 @@
+scrape_configs:
+  - job_name: "mailing"
+    static_configs:
+      - targets:
+          - "mailing-service:8080"
+    metrics_path: "/metrics"
+    scrape_interval: 1m
