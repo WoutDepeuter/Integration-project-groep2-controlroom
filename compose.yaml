@@ -25,7 +25,7 @@ services:
     ports:
       - "3000:3000"
     networks:
-      - observability
+      - monitoring
     environment:
       - "GF_USERS_DEFAULT_THEME=light"
       - "GF_SECURITY_ADMIN_PASSWORD=ThisPasswordCantBeGuessed123"
@@ -38,7 +38,7 @@ services:
   prometheus-metrics:
     image: prom/prometheus
     networks:
-      - observability
+      - monitoring
       - attendify_net
     volumes:
       - ./prometheus.yml:/etc/prometheus/prometheus.yml
