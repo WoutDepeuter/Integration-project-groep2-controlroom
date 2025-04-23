@@ -1,0 +1,16 @@
+filebeat.inputs:
+  - type: filestream
+    enabled: true
+    id: container-logs
+    prospector.scanner.symlinks: true
+    parsers:
+      - container: ~
+    paths:
+      - "/var/lib/docker/containers/*/*.log"
+    scan_frequency: 10s
+
+output.logstash:
+  hosts: ["logstash:5044"]
+
+
+logging.level: warning
