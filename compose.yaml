@@ -1,51 +1,54 @@
 services:
-
   elasticsearch:
     image: docker.elastic.co/elasticsearch/elasticsearch:9.0.0
     container_name: elasticsearch
-    ports:
-      - 30071:9200
+    restart: always
     volumes:
-      - elasticsearchdata:/usr/share/elasticsearch/data
+      - elastic_data:/usr/share/elasticsearch/data/
     environment:
+      - xpack.security.enabled=false
+      - ES_JAVA_OPTS=-Xmx256m -Xms256m
       - discovery.type=single-node
-      - ES_JAVA_OPTS=-Xms512m -Xmx2g
       - xpack.ml.enabled=false
-      - bootstrap.memory_lock=false
-    ulimits:
-      memlock: -1
-    deploy:
-      resources:
-        limits:
-          memory: 2GB
+    ports:
+      - '9200:9200'
+    networks:
+      - monitoring
 
   kibana:
     image: docker.elastic.co/kibana/kibana:9.0.0
     container_name: kibana
-    volumes:
-      - kibanadata:/usr/share/kibana/data
-    environment:
-      - elasticsearch.ssl.verificationMode=false
+    restart: always
     ports:
-      - 30072:5601
-
-  filebeat:
-    image: docker.elastic.co/beats/filebeat:9.0.0
-    container_name: filebeat
-    user: root
+      - '5601:5601'
     environment:
-      - output.elasticsearch.hosts=["elasticsearch:9200"]
-      - ELASTICSEARCH_PASSWORD=${ELASTICSEARCH_PASSWORD}
-    volumes:
-      - ./filebeat.docker.yml:/usr/share/filebeat/filebeat.yml:ro
-      - /var/lib/docker/containers:/var/lib/docker/containers:ro
-      - /var/run/docker.sock:/var/run/docker.sock:ro
-      - ./modules.d:/usr/share/filebeat/modules.d
-      - filebeatdata:/usr/share/filebeat/data:rw
-    command: filebeat -e --strict.perms=false -E output.elasticsearch.hosts=["elasticsearch:9200"]
+      - ELASTICSEARCH_URL=http://elasticsearch:9200
+    depends_on:
+      - elasticsearch
+    networks:
+      - monitoring
 
+  logstash:
+    image: docker.elastic.co/logstash/logstash:9.0.0
+    container_name: logstash
+    restart: always
+    volumes:
+      - ./logstash/:/logstash_dir
+    command: logstash -f /logstash_dir/pipeline/logstash.conf
+    depends_on:
+      - elasticsearch
+    ports:
+      - '5044:5044'
+    environment:
+      - LS_JAVA_OPTS=-Xmx256m -Xms256m
+    networks:
+      - monitoring
+      - attendify_net
+
+networks:
+  monitoring: {}
+  attendify_net:
+      external: true
 
 volumes:
-  elasticsearchdata: {}
-  kibanadata: {}
-  filebeatdata: {}
+  elastic_data: {}
