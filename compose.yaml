@@ -1,0 +1,51 @@
+services:
+
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:9.0.0
+    container_name: elasticsearch
+    ports:
+      - 30071:9200
+    volumes:
+      - elasticsearchdata:/usr/share/elasticsearch/data
+    environment:
+      - discovery.type=single-node
+      - ES_JAVA_OPTS=-Xms512m -Xmx2g
+      - xpack.ml.enabled=false
+      - bootstrap.memory_lock=false
+    ulimits:
+      memlock: -1
+    deploy:
+      resources:
+        limits:
+          memory: 2GB
+
+  kibana:
+    image: docker.elastic.co/kibana/kibana:9.0.0
+    container_name: kibana
+    volumes:
+      - kibanadata:/usr/share/kibana/data
+    environment:
+      - elasticsearch.ssl.verificationMode=false
+    ports:
+      - 30072:5601
+
+  filebeat:
+    image: docker.elastic.co/beats/filebeat:9.0.0
+    container_name: filebeat
+    user: root
+    environment:
+      - output.elasticsearch.hosts=["elasticsearch:9200"]
+      - ELASTICSEARCH_PASSWORD=${ELASTICSEARCH_PASSWORD}
+    volumes:
+      - ./filebeat.docker.yml:/usr/share/filebeat/filebeat.yml:ro
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./modules.d:/usr/share/filebeat/modules.d
+      - filebeatdata:/usr/share/filebeat/data:rw
+    command: filebeat -e --strict.perms=false -E output.elasticsearch.hosts=["elasticsearch:9200"]
+
+
+volumes:
+  elasticsearchdata: {}
+  kibanadata: {}
+  filebeatdata: {}
