@@ -13,6 +13,11 @@ services:
       - xpack.ml.enabled=false
     networks:
       - monitoring
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "-X", "GET", "http://localhost:9200/_cluster/health?wait_for_status=yellow&timeout=1s" ]
+      interval: 5s
+      timeout: 3s
+      retries: 10
 
   kibana:
     image: docker.elastic.co/kibana/kibana:9.0.0
@@ -23,7 +28,8 @@ services:
     environment:
       - ELASTICSEARCH_URL=http://elasticsearch:9200
     depends_on:
-      - elasticsearch
+      elasticsearch:
+        condition: service_healthy
     networks:
       - monitoring
 
@@ -35,9 +41,14 @@ services:
       - ./logstash/:/logstash_dir
     command: logstash -f /logstash_dir/pipeline/logstash.conf
     depends_on:
-      - elasticsearch
+      elasticsearch:
+        condition: service_healthy
     environment:
       - LS_JAVA_OPTS=-Xmx256m -Xms256m
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
     networks:
       - monitoring
       - attendify_net
