@@ -1,0 +1,76 @@
+services:
+
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:9.0.0
+    container_name: elasticsearch
+    restart: always
+    volumes:
+      - elastic_data:/usr/share/elasticsearch/data/
+    environment:
+      - xpack.security.enabled=false
+      - ES_JAVA_OPTS=-Xmx256m -Xms256m
+      - discovery.type=single-node
+      - xpack.ml.enabled=false
+    networks:
+      - monitoring
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "-X", "GET", "http://localhost:9200/_cluster/health?wait_for_status=yellow&timeout=1s" ]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  kibana:
+    image: docker.elastic.co/kibana/kibana:9.0.0
+    container_name: kibana
+    restart: always
+    ports:
+      - '30071:5601'
+    environment:
+      - ELASTICSEARCH_URL=http://elasticsearch:9200
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+    networks:
+      - monitoring
+
+  logstash:
+    image: docker.elastic.co/logstash/logstash:9.0.0
+    container_name: logstash
+    restart: always
+    volumes:
+      - ./logstash/:/logstash_dir
+    command: logstash -f /logstash_dir/pipeline/logstash.conf
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+    environment:
+      - LS_JAVA_OPTS=-Xmx256m -Xms256m
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+    networks:
+      - monitoring
+      - attendify_net
+
+  filebeat:
+    image: docker.elastic.co/beats/filebeat:9.0.0
+    container_name: filebeat
+    restart: always
+    user: root
+    volumes:
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./filebeat/conf.yml:/usr/share/filebeat/filebeat.yml:ro
+    depends_on:
+      - logstash
+    networks:
+      - monitoring
+
+networks:
+  monitoring: {}
+  attendify_net:
+      external: true
+
+volumes:
+  elastic_data: {}

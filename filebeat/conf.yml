@@ -1,0 +1,25 @@
+filebeat.inputs:
+  - type: filestream
+    enabled: true
+    id: container-logs
+    prospector.scanner.symlinks: true
+    parsers:
+      - container:
+          format: docker
+          cri: docker
+    processors:
+      - add_docker_metadata:
+          host: "unix:///var/run/docker.sock"
+          add_hostname: true
+          add_id: true
+          add_image: true
+          add_labels: "*"
+    paths:
+      - "/var/lib/docker/containers/*/*.log"
+    scan_frequency: 10s
+
+output.logstash:
+  hosts: ["logstash:5044"]
+
+
+logging.level: warning
