@@ -1,0 +1,7 @@
+server.host: "0.0.0.0"
+server.shutdownTimeout: "5s"
+elasticsearch.hosts: [ "${ELASTICSEARCH_URL}" ]
+monitoring.ui.container.elasticsearch.enabled: true
+xpack.security.encryptionKey: "${ENCRYPTION_KEY}"
+xpack.encryptedSavedObjects.encryptionKey: "${ENCRYPTION_KEY}"
+xpack.reporting.encryptionKey: "${ENCRYPTION_KEY}"
