@@ -69,11 +69,26 @@ services:
     volumes:
       - /var/lib/docker/containers:/var/lib/docker/containers:ro
       - /var/run/docker.sock:/var/run/docker.sock:ro
-      - ./filebeat/conf.yml:/usr/share/filebeat/filebeat.yml:ro
+      - ./beats/filebeat/conf.yml:/usr/share/filebeat/filebeat.yml:ro
     depends_on:
       - logstash
     networks:
       - monitoring
+
+  metricbeat:
+    image: docker.elastic.co/beats/metricbeat:9.0.0
+    container_name: metricbeat
+    restart: always
+    user: root
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./beats/metricbeat/conf.yml:/usr/share/metricbeat/metricbeat.yml:ro
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+    networks:
+      - monitoring
+      - attendify_net
 
 networks:
   monitoring: {}
