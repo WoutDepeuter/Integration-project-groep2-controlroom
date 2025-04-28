@@ -23,9 +23,12 @@ services:
     image: docker.elastic.co/kibana/kibana:9.0.0
     container_name: kibana
     restart: always
+    volumes:
+      - ./kibana/kibana.yml:/usr/share/kibana/config/kibana.yml
     ports:
       - '30071:5601'
     environment:
+      - ENCRYPTION_KEY=${ENCRYPTION_KEY}
       - ELASTICSEARCH_URL=http://elasticsearch:9200
     depends_on:
       elasticsearch:
@@ -45,6 +48,11 @@ services:
         condition: service_healthy
     environment:
       - LS_JAVA_OPTS=-Xmx256m -Xms256m
+      - RABBITMQ_HOST=${RABBITMQ_HOST}
+      - RABBITMQ_PORT=${RABBITMQ_PORT}
+      - RABBITMQ_VHOST=${RABBITMQ_VHOST}
+      - RABBITMQ_USER=${RABBITMQ_USER}
+      - RABBITMQ_PASS=${RABBITMQ_PASS}
     deploy:
       resources:
         limits:
@@ -61,11 +69,26 @@ services:
     volumes:
       - /var/lib/docker/containers:/var/lib/docker/containers:ro
       - /var/run/docker.sock:/var/run/docker.sock:ro
-      - ./filebeat/conf.yml:/usr/share/filebeat/filebeat.yml:ro
+      - ./beats/filebeat/conf.yml:/usr/share/filebeat/filebeat.yml:ro
     depends_on:
       - logstash
     networks:
       - monitoring
+
+  metricbeat:
+    image: docker.elastic.co/beats/metricbeat:9.0.0
+    container_name: metricbeat
+    restart: always
+    user: root
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./beats/metricbeat/conf.yml:/usr/share/metricbeat/metricbeat.yml:ro
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+    networks:
+      - monitoring
+      - attendify_net
 
 networks:
   monitoring: {}
