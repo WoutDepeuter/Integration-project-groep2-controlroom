@@ -28,3 +28,5 @@ processors:
 
 output.elasticsearch:
   hosts: ["http://elasticsearch:9200"]
+
+logging.level: warning
