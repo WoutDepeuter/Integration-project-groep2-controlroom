@@ -22,4 +22,6 @@ jobs:
             cd ~/attendify/monitoring
             git pull
             docker compose pull
+            chown go-w ./beats/filebeat/conf.yml
+            chown go-w ./beats/metricbeat/conf.yml
             docker compose up -d --build
