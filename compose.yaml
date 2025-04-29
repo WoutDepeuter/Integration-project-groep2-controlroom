@@ -62,27 +62,27 @@ services:
       - attendify_net
 
   filebeat:
-    image: docker.elastic.co/beats/filebeat:9.0.0
+    build:
+      context: ./beats/filebeat/
     container_name: filebeat
     restart: always
     user: root
     volumes:
       - /var/lib/docker/containers:/var/lib/docker/containers:ro
       - /var/run/docker.sock:/var/run/docker.sock:ro
-      - ./beats/filebeat/conf.yml:/usr/share/filebeat/filebeat.yml:ro
     depends_on:
       - logstash
     networks:
       - monitoring
 
   metricbeat:
-    image: docker.elastic.co/beats/metricbeat:9.0.0
+    build:
+      context: ./beats/metricbeat/
     container_name: metricbeat
     restart: always
     user: root
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
-      - ./beats/metricbeat/conf.yml:/usr/share/metricbeat/metricbeat.yml:ro
     depends_on:
       elasticsearch:
         condition: service_healthy
