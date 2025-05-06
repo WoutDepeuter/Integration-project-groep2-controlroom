@@ -1,5 +1,7 @@
 services:
 
+
+
   elasticsearch:
     image: docker.elastic.co/elasticsearch/elasticsearch:9.0.0
     container_name: elasticsearch
@@ -90,10 +92,53 @@ services:
       - monitoring
       - attendify_net
 
+
+
+  heartbeat-monitor:
+      build:
+        context: ./extensions/heartbeat
+        dockerfile: Dockerfile.heartbeat
+      depends_on:
+        - elasticsearch
+        - rabbitmq
+      volumes:
+        - ./extensions/heartbeat:/app
+      command: ["python", "/app/heartbeat_monitoring.py"]    
+      networks:
+      - monitoring
+      - attendify_net
+
+
+
+
+  rabbitmq:
+      image: rabbitmq:latest
+      container_name: some-rabbit
+      restart: always
+      environment:
+        RABBITMQ_DEFAULT_PASS: RABBITMQ_PASS
+        RABBITMQ_DEFAULT_USER: RABBITMQ_USER
+        RABBITMQ_DEFAULT_VHOST: RABBITMQ_VHOST
+      ports:
+        - "30000:15672"
+        - "30001:5672"
+      volumes:
+        - rabbitmq_data:/var/lib/rabbitmq
+#        - ./enabled_plugins:/etc/rabbitmq/enabled_plugins
+      networks:
+        - attendify_net      
+
 networks:
   monitoring: {}
   attendify_net:
       external: true
 
 volumes:
+  rabbitmq_data: {}
   elastic_data: {}
+
+
+
+
+
+

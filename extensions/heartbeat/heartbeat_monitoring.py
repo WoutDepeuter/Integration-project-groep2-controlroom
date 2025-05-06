@@ -1,13 +1,44 @@
 import time
 import requests
 import pika
+
 from datetime import datetime, timedelta
 
-ELASTIC_URL = 'http://localhost:9200'
+ELASTIC_URL = 'http://elasticsearch:9200'
 INDEX_NAME = 'logs-*'
-APPS = ['controlroom', 'facturatie', 'CRM', 'frontend', 'planning', 'kassa', 'mailing']
-RABBITMQ_HOST = 'localhost'
-RABBITMQ_QUEUE = 'heartbeat.alerts'
+RABBITMQ_HOST = 'rabbitmq'
+RABBITMQ_USER = 'attendify'
+RABBITMQ_PASS = 'uXe5u1oWkh32JyLA'
+RABBITMQ_QUEUE = 'heartbeat.failure'
+
+def get_active_apps():
+    query = {
+        "size": 0,
+        "aggs": {
+            "apps": {
+                "terms": {
+                    "field": "sender.keyword", 
+                    "size": 1000
+                }
+            }
+        },
+        "query": {
+            "range": {
+                "@timestamp": {
+                    "gte": "now-1h"
+                }
+            }
+        }
+    }
+
+    try:
+        res = requests.post(f"{ELASTIC_URL}/{INDEX_NAME}/_search", json=query)
+        res.raise_for_status()
+        data = res.json()
+        return [bucket['key'] for bucket in data['aggregations']['apps']['buckets']]
+    except Exception as e:
+        print(f"Error fetching active apps: {e}")
+        return []
 
 def check_heartbeat(sender):
     now = datetime.utcnow()
@@ -32,15 +63,14 @@ def check_heartbeat(sender):
         "_source": ["@timestamp"]
     }
     try:
-        res = requests.post(
-            f"{ELASTIC_URL}/{INDEX_NAME}/_search",
-            json=query,
-            timeout=10
-        )
+        res = requests.post(f"{ELASTIC_URL}/{INDEX_NAME}/_search", json=query, timeout=10)
         res.raise_for_status()
         data = res.json()
-        return data['hits']['total']['value'] > 0
+        heartbeat_found = data['hits']['total']['value'] > 0
+        logging.info(f"Heartbeat for {sender}: {'OK' if heartbeat_found else 'Missing'}")  
+        return heartbeat_found
     except Exception:
+        logging.error(f"Error checking heartbeat for {sender}")
         return True
 
 def send_alert(sender):
@@ -50,6 +80,8 @@ def send_alert(sender):
         "status": "missing_heartbeat",
         "message": f"No heartbeat in the last minute from {sender}"
     }
+
+    print(f"ALERT SENT: {message}")
 
     try:
         connection = pika.BlockingConnection(pika.ConnectionParameters(host=RABBITMQ_HOST))
@@ -65,8 +97,24 @@ def send_alert(sender):
     except Exception:
         pass
 
+
+#    logging.basicConfig(level=logging.INFO)
+    
+
 while True:
-    for sender in APPS:
+    import logging
+
+    logging.basicConfig(level=logging.INFO, filename='heartbeat_monitor.log', filemode='a', format='%(asctime)s - %(message)s')
+
+    logger = logging.getLogger(__name__)
+    logging.info("Heartbeat monitor checking apps")
+    apps = get_active_apps()
+    print(f"Active apps: {apps}")
+    for sender in apps:
         if not check_heartbeat(sender):
+            print(f"Missing heartbeat from: {sender}")
             send_alert(sender)
-    time.sleep(60)
+        else:
+            print(f"[{datetime()}] OK: {sender}")    
+    time.sleep(10)
+#    time.sleep(60)
