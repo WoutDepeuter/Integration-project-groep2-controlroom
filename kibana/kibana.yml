@@ -5,3 +5,4 @@ monitoring.ui.container.elasticsearch.enabled: true
 xpack.security.encryptionKey: "${ENCRYPTION_KEY}"
 xpack.encryptedSavedObjects.encryptionKey: "${ENCRYPTION_KEY}"
 xpack.reporting.encryptionKey: "${ENCRYPTION_KEY}"
+elasticsearch.publicBaseUrl: ""
