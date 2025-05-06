@@ -20,6 +20,8 @@ filebeat.inputs:
 
 output.logstash:
   hosts: ["logstash:5044"]
+  username: "elastic"
+  password: "${ELASTIC_PASSWORD}"
 
 
 logging.level: warning
