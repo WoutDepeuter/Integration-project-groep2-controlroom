@@ -1,87 +1,77 @@
 import time
 import requests
 import pika
-
+import logging
+import os
 from datetime import datetime, timedelta
 
-ELASTIC_URL = 'http://elasticsearch:9200'
-INDEX_NAME = 'logs-*'
-RABBITMQ_HOST = 'rabbitmq'
-RABBITMQ_USER = 'attendify'
-RABBITMQ_PASS = 'uXe5u1oWkh32JyLA'
-RABBITMQ_QUEUE = 'heartbeat.failure'
+logging.basicConfig(
+    level=logging.INFO, 
+    filename='heartbeat_monitor.log', 
+    filemode='a', 
+    format='%(asctime)s - %(message)s'
+)
 
-def get_active_apps():
+
+ELASTIC_URL = os.environ.get('ELASTIC_URL')
+INDEX_NAME = os.environ.get('INDEX_NAME')
+RABBITMQ_HOST = os.environ.get('RABBITMQ_HOST')
+RABBITMQ_USER = os.environ.get('RABBITMQ_USER')
+RABBITMQ_PASS = os.environ.get('RABBITMQ_PASS')
+RABBITMQ_QUEUE = os.environ.get('RABBITMQ_QUEUE')
+
+
+def get_last_heartbeats():
     query = {
         "size": 0,
         "aggs": {
             "apps": {
                 "terms": {
-                    "field": "sender.keyword", 
+                    "field": "xml_data.sender.keyword", 
                     "size": 1000
+                },
+                "aggs": {
+                    "last_seen": {
+                        "max": {
+                            "field": "@timestamp"
+                        }
+                    }
                 }
             }
         },
         "query": {
             "range": {
                 "@timestamp": {
-                    "gte": "now-1h"
+                    "gte": "now-2m"
                 }
             }
         }
     }
 
     try:
-        res = requests.post(f"{ELASTIC_URL}/{INDEX_NAME}/_search", json=query)
-        res.raise_for_status()
-        data = res.json()
-        return [bucket['key'] for bucket in data['aggregations']['apps']['buckets']]
-    except Exception as e:
-        print(f"Error fetching active apps: {e}")
-        return []
-
-def check_heartbeat(sender):
-    now = datetime.utcnow()
-    one_minute_ago = now - timedelta(minutes=1)
-    query = {
-        "query": {
-            "bool": {
-                "filter": [
-                    {"term": {"sender": sender}},
-                    {
-                        "range": {
-                            "@timestamp": {
-                                "gte": one_minute_ago.isoformat(),
-                                "lte": now.isoformat()
-                            }
-                        }
-                    }
-                ]
-            }
-        },
-        "size": 1,
-        "_source": ["@timestamp"]
-    }
-    try:
         res = requests.post(f"{ELASTIC_URL}/{INDEX_NAME}/_search", json=query, timeout=10)
         res.raise_for_status()
         data = res.json()
-        heartbeat_found = data['hits']['total']['value'] > 0
-        logging.info(f"Heartbeat for {sender}: {'OK' if heartbeat_found else 'Missing'}")  
-        return heartbeat_found
-    except Exception:
-        logging.error(f"Error checking heartbeat for {sender}")
-        return True
+        heartbeats = {}
+
+        for bucket in data["aggregations"]["apps"]["buckets"]:
+            timestamp = bucket["last_seen"].get("value_as_string")
+            if timestamp:
+                heartbeats[bucket["key"]] = datetime.fromisoformat(timestamp.replace("Z", "+00:00"))
+
+        return heartbeats
+    except Exception as e:
+        logging.error(f"Error fetching heartbeats: {e}")
+        return {}
 
 def send_alert(sender):
     message = {
         "timestamp": datetime.utcnow().isoformat(),
         "sender": sender,
-        "status": "missing_heartbeat",
         "message": f"No heartbeat in the last minute from {sender}"
     }
 
-    print(f"ALERT SENT: {message}")
+    logging.warning(f"ALERT SENT: {message}")
 
     try:
         connection = pika.BlockingConnection(pika.ConnectionParameters(host=RABBITMQ_HOST))
@@ -94,27 +84,21 @@ def send_alert(sender):
             properties=pika.BasicProperties(delivery_mode=2)
         )
         connection.close()
-    except Exception:
-        pass
+    except Exception as e:
+        logging.error(f"Error sending alert for {sender}: {e}")
 
-
-#    logging.basicConfig(level=logging.INFO)
-    
 
 while True:
-    import logging
-
-    logging.basicConfig(level=logging.INFO, filename='heartbeat_monitor.log', filemode='a', format='%(asctime)s - %(message)s')
-
-    logger = logging.getLogger(__name__)
     logging.info("Heartbeat monitor checking apps")
-    apps = get_active_apps()
-    print(f"Active apps: {apps}")
-    for sender in apps:
-        if not check_heartbeat(sender):
-            print(f"Missing heartbeat from: {sender}")
+    heartbeats = get_last_heartbeats()
+    now = datetime.utcnow()
+
+    for sender, last_seen in heartbeats.items():
+        if now - last_seen > timedelta(minutes=1):
+            logging.warning(f"Missing heartbeat from: {sender}")
             send_alert(sender)
         else:
-            print(f"[{datetime()}] OK: {sender}")    
+            logging.info(f"OK: {sender}")
+            
     time.sleep(10)
 #    time.sleep(60)
