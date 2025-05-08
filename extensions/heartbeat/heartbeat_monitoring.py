@@ -1,104 +1,64 @@
 import time
-import requests
+
 import pika
 import logging
-import os
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, UTC
 
-logging.basicConfig(
-    level=logging.INFO, 
-    filename='heartbeat_monitor.log', 
-    filemode='a', 
-    format='%(asctime)s - %(message)s'
-)
+import xmltodict
+
+from elastic import get_last_heartbeats
+from env import RABBITMQ_EXCHANGE, RABBITMQ_ROUTING_KEY, RABBITMQ_CHANNEL
 
 
-ELASTIC_URL = os.environ.get('ELASTIC_URL')
-INDEX_NAME = os.environ.get('INDEX_NAME')
-RABBITMQ_HOST = os.environ.get('RABBITMQ_HOST')
-RABBITMQ_USER = os.environ.get('RABBITMQ_USER')
-RABBITMQ_PASS = os.environ.get('RABBITMQ_PASS')
-RABBITMQ_QUEUE = os.environ.get('RABBITMQ_QUEUE')
+def send_alert(connection: pika.BlockingConnection, down_services: dict[str, datetime]):
 
+    # TODO: Save current down services, and take diff (don't need to send an email every 10s if the same stuff stays down
+    new_down = down_services
 
-def get_last_heartbeats():
-    query = {
-        "size": 0,
-        "aggs": {
-            "apps": {
-                "terms": {
-                    "field": "xml_data.sender.keyword", 
-                    "size": 1000
-                },
-                "aggs": {
-                    "last_seen": {
-                        "max": {
-                            "field": "@timestamp"
-                        }
-                    }
-                }
-            }
-        },
-        "query": {
-            "range": {
-                "@timestamp": {
-                    "gte": "now-2m"
-                }
-            }
+    # See template.dto.template for how I choose these values
+    data = {
+        'dto': {
+            'admins': [], # TODO: Get a list of all admin Ids OR emails!
+            'services': [
+                {
+                    'sender': k,
+                    'last_seen': v
+                } for k, v in new_down.items()
+            ]
         }
     }
 
-    try:
-        res = requests.post(f"{ELASTIC_URL}/{INDEX_NAME}/_search", json=query, timeout=10)
-        res.raise_for_status()
-        data = res.json()
-        heartbeats = {}
-
-        for bucket in data["aggregations"]["apps"]["buckets"]:
-            timestamp = bucket["last_seen"].get("value_as_string")
-            if timestamp:
-                heartbeats[bucket["key"]] = datetime.fromisoformat(timestamp.replace("Z", "+00:00"))
-
-        return heartbeats
-    except Exception as e:
-        logging.error(f"Error fetching heartbeats: {e}")
-        return {}
-
-def send_alert(sender):
-    message = {
-        "timestamp": datetime.utcnow().isoformat(),
-        "sender": sender,
-        "message": f"No heartbeat in the last minute from {sender}"
-    }
-
-    logging.warning(f"ALERT SENT: {message}")
+    xml_str = xmltodict.unparse(data, pretty=True)
+    logging.debug("Heartbeat mail dto \n%s", xml_str)
 
     try:
-        connection = pika.BlockingConnection(pika.ConnectionParameters(host=RABBITMQ_HOST))
+        # TODO: Is it fine to open a new channel for this? Should I pass through the channel object instead?
         channel = connection.channel()
-        channel.queue_declare(queue=RABBITMQ_QUEUE, durable=True)
         channel.basic_publish(
-            exchange='',
-            routing_key=RABBITMQ_QUEUE,
-            body=str(message),
-            properties=pika.BasicProperties(delivery_mode=2)
+            exchange=RABBITMQ_EXCHANGE,
+            routing_key=RABBITMQ_ROUTING_KEY,
+            body=xml_str,
         )
-        connection.close()
-    except Exception as e:
-        logging.error(f"Error sending alert for {sender}: {e}")
+    except Exception:
+        logging.exception("Failed to mail, how to monitor this???????", exc_info=True)
 
-
-while True:
-    logging.info("Heartbeat monitor checking apps")
+def heartbeat_loop(connection: pika.BlockingConnection):
+    logging.debug("Heartbeat monitor checking apps")
     heartbeats = get_last_heartbeats()
-    now = datetime.utcnow()
+    now = datetime.now(UTC)
 
+    down_services: dict[str, datetime] = {}
     for sender, last_seen in heartbeats.items():
         if now - last_seen > timedelta(minutes=1):
             logging.warning(f"Missing heartbeat from: {sender}")
-            send_alert(sender)
+            down_services[sender] = last_seen
         else:
-            logging.info(f"OK: {sender}")
-            
+            logging.debug(f"Received heartbeat in time: {sender}")
+
+    if len(down_services) > 0:
+        send_alert(connection, down_services)
+        pass
+
     time.sleep(10)
-#    time.sleep(60)
+
+

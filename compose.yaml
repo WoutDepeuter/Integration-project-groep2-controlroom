@@ -91,15 +91,9 @@ services:
       - attendify_net
 
   heartbeat-monitor:
-    image: ghcr.io/woutdepeuter/integration-project-groep2-mailing:latest
-#    build:
-#      context: ./extensions/heartbeat
-#      dockerfile: Dockerfile.heartbeat
+    image: ghcr.io/woutdepeuter/integration-project-groep2-controlroom:latest
     depends_on:
       - elasticsearch
-      - rabbitmq
-    volumes:
-      - ./extensions/heartbeat:/app
     networks:
     - monitoring
     - attendify_net
@@ -110,5 +104,4 @@ networks:
       external: true
 
 volumes:
-  rabbitmq_data: {}
   elastic_data: {}

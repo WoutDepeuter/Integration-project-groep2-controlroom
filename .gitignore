@@ -2,3 +2,5 @@
 .env
 .DS_Store
 heartbeat_monitor.log
+.venv
+__pycache__

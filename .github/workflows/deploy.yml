@@ -7,8 +7,39 @@ on:
   workflow_dispatch:
 
 jobs:
+  upload-heart-beat-container:
+    name: "Build and upload heartbeat container"
+    runs-on: ubuntu-latest
+    permissions:
+      packages: write
+      contents: read
+      attestations: write
+      id-token: write
+
+    steps:
+      - name: Check out the repo
+        uses: actions/checkout@v4
+
+      - name: Login to GHCR
+        uses: docker/login-action@v2
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push container
+        uses: docker/build-push-action@v5
+        with:
+          context: ./extensions/hearbeat
+          file: ./Dockerfile
+          push: true
+          tags: ghcr.io/woutdepeuter/integration-project-groep2-controlroom:latest
+
+
   deploy:
     name: "SSH & Deploy"
+    needs:
+      - upload-heart-beat-container
     runs-on: ubuntu-latest
     steps:
       - name: "SSH"
