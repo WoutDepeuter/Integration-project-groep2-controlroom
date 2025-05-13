@@ -34,9 +34,9 @@ def send_alert(connection: pika.BlockingConnection, down_services: dict[str, dat
         return
     
     if added:
-        logging.info(f"Nuevos servicios caídos: {list(added.keys())}")
+        logging.info(f"New down services: {list(added.keys())}")
     if removed:
-        logging.info(f"Servicios recuperados: {removed}")
+        logging.info(f"Recovered services: {removed}")
 
     previous_down_services = down_services.copy()
 
