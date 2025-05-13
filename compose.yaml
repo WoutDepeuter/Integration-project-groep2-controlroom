@@ -114,6 +114,25 @@ services:
       - monitoring
       - attendify_net
 
+  heartbeat-monitor:
+    image: ghcr.io/woutdepeuter/integration-project-groep2-controlroom:latest
+    depends_on:
+      - elasticsearch
+    environment:
+      - ELASTIC_URL=http://elasticsearch:9200
+      - INDEX_NAME=heartbeat
+      - RABBITMQ_HOST=${RABBITMQ_HOST}
+      - RABBITMQ_PORT=${RABBITMQ_PORT}
+      - RABBITMQ_VHOST=${RABBITMQ_VHOST}
+      - RABBITMQ_USER=${RABBITMQ_USER}
+      - RABBITMQ_PASS=${RABBITMQ_PASS}
+      - ELASTIC_PASSWORD=${ELASTIC_PASSWORD}
+      - LOG_LEVEL=INFO
+      - ADMIN_EMAILS=${ADMIN_EMAILS}
+    networks:
+      - monitoring
+      - attendify_net
+
 networks:
   monitoring: {}
   attendify_net:
