@@ -7,17 +7,32 @@ services:
     volumes:
       - elastic_data:/usr/share/elasticsearch/data/
     environment:
-      - xpack.security.enabled=false
+      - xpack.security.enabled=true
+      - discovery.type=single-node
       - ES_JAVA_OPTS=-Xmx256m -Xms256m
       - discovery.type=single-node
       - xpack.ml.enabled=false
+      - ELASTIC_PASSWORD=${ELASTIC_PASSWORD}
     networks:
       - monitoring
     healthcheck:
-      test: [ "CMD", "curl", "-f", "-X", "GET", "http://localhost:9200/_cluster/health?wait_for_status=yellow&timeout=1s" ]
+      test: [ "CMD", "curl", "-f", "-u", "elastic:${ELASTIC_PASSWORD}", "-X", "GET", "http://localhost:9200/_cluster/health?wait_for_status=yellow&timeout=1s" ]
       interval: 5s
       timeout: 3s
       retries: 10
+
+  setup:
+    image: appropriate/curl
+    networks:
+      - monitoring
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+    entrypoint: >
+      sh -c 'curl -X POST -u elastic:${ELASTIC_PASSWORD} -H "Content-Type: application/json" http://elasticsearch:9200/_security/user/kibana_system/_password -d "{\"password\":\"${KIBANA_PASSWORD}\"}";'
+    environment:
+      - ELASTIC_PASSWORD=${ELASTIC_PASSWORD}
+      - KIBANA_PASSWORD=${KIBANA_PASSWORD}
 
   kibana:
     image: docker.elastic.co/kibana/kibana:9.0.0
@@ -30,9 +45,13 @@ services:
     environment:
       - ENCRYPTION_KEY=${ENCRYPTION_KEY}
       - ELASTICSEARCH_URL=http://elasticsearch:9200
+      - ELASTICSEARCH_USERNAME=kibana_system
+      - ELASTICSEARCH_PASSWORD=${ELASTIC_PASSWORD}
     depends_on:
       elasticsearch:
         condition: service_healthy
+      setup:
+        condition: service_completed_successfully
     networks:
       - monitoring
 
@@ -53,6 +72,7 @@ services:
       - RABBITMQ_VHOST=${RABBITMQ_VHOST}
       - RABBITMQ_USER=${RABBITMQ_USER}
       - RABBITMQ_PASS=${RABBITMQ_PASS}
+      - ELASTIC_PASSWORD=${ELASTIC_PASSWORD}
     deploy:
       resources:
         limits:
@@ -67,6 +87,8 @@ services:
     container_name: filebeat
     restart: always
     user: root
+    environment:
+      - ELASTIC_PASSWORD=${ELASTIC_PASSWORD}
     volumes:
       - /var/lib/docker/containers:/var/lib/docker/containers:ro
       - /var/run/docker.sock:/var/run/docker.sock:ro
@@ -81,6 +103,8 @@ services:
     container_name: metricbeat
     restart: always
     user: root
+    environment:
+      - ELASTIC_PASSWORD=${ELASTIC_PASSWORD}
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
     depends_on:
