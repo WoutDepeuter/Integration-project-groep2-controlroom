@@ -127,7 +127,7 @@ services:
       - RABBITMQ_USER=${RABBITMQ_USER}
       - RABBITMQ_PASS=${RABBITMQ_PASS}
       - ELASTIC_PASSWORD=${ELASTIC_PASSWORD}
-      - LOG_LEVEL=DEBUG
+      - LOG_LEVEL=INFO
       - ADMIN_EMAILS=${ADMIN_EMAILS}
     networks:
       - monitoring
