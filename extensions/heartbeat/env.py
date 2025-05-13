@@ -9,3 +9,4 @@ RABBITMQ_PASS = os.environ.get('RABBITMQ_PASS')
 RABBITMQ_CHANNEL = os.environ.get('RABBITMQ_CHANNEL') or "mailing.mail"
 RABBITMQ_EXCHANGE = os.environ.get('RABBITMQ_EXCHANGE') or "monitoring"
 RABBITMQ_ROUTING_KEY = os.environ.get('RABBITMQ_ROUTING_KEY') or "heartbeat_alart"
+ADMIN_EMAILS = (os.environ.get('ADMIN_EMAILS') or "").split(",")

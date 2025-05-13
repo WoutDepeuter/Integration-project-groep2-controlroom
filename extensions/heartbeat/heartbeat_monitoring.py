@@ -9,11 +9,41 @@ import xmltodict
 from elastic import get_last_heartbeats
 from env import RABBITMQ_EXCHANGE, RABBITMQ_ROUTING_KEY, RABBITMQ_CHANNEL
 
+previous_down_services = {}
 
 def send_alert(connection: pika.BlockingConnection, down_services: dict[str, datetime]):
 
     # TODO: Save current down services, and take diff (don't need to send an email every 10s if the same stuff stays down
-    new_down = down_services
+#    new_down = down_services
+    global previous_down_services
+
+    added = {}
+    removed = []
+
+    for service, last_seen in down_services.items():
+        if service not in previous_down_services:
+            added[service] = last_seen
+
+    for service in previous_down_services:
+        if service not in down_services:
+            removed.append(service)
+
+
+    if not added and not removed:
+        logging.debug("No changes in down services. Skipping alert.")
+        return
+    
+    if added:
+        logging.info(f"Nuevos servicios caídos: {list(added.keys())}")
+    if removed:
+        logging.info(f"Servicios recuperados: {removed}")
+
+    previous_down_services = down_services.copy()
+
+    if added == {}:
+        logging.debug("No new services down, skipping alert")
+        return
+        
 
     # See template.dto.template for how I choose these values
     data = {
@@ -23,7 +53,7 @@ def send_alert(connection: pika.BlockingConnection, down_services: dict[str, dat
                 {
                     'sender': k,
                     'last_seen': v
-                } for k, v in new_down.items()
+                } for k, v in down_services.items()
             ]
         }
     }
