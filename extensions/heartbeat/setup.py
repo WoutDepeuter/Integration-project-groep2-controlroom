@@ -4,7 +4,7 @@ import pika
 import xmltodict
 
 from env import RABBITMQ_HOST, RABBITMQ_USER, RABBITMQ_PASS, RABBITMQ_EXCHANGE, \
-    RABBITMQ_ROUTING_KEY, RABBITMQ_VHOST, RABBITMQ_CHANNEL
+    RABBITMQ_ROUTING_KEY, RABBITMQ_VHOST, RABBITMQ_CHANNEL, RABBITMQ_PORT
 
 
 def init_connection() -> pika.BlockingConnection:
@@ -23,13 +23,16 @@ def init_connection() -> pika.BlockingConnection:
         raise AttributeError("The RABBITMQ_EXCHANGE environment variable has not been set")
     if RABBITMQ_ROUTING_KEY is None or RABBITMQ_ROUTING_KEY == "":
         raise AttributeError("The RABBITMQ_ROUTING_KEY environment variable has not been set")
+    if RABBITMQ_PORT is None or RABBITMQ_PORT == "":
+        raise AttributeError("The RABBITMQ_PORT environment variable has not been set")
 
 
     connection = pika.BlockingConnection(pika.ConnectionParameters(
         host=RABBITMQ_HOST,
         virtual_host=RABBITMQ_VHOST,
-        port=30001,
-        credentials=pika.PlainCredentials(RABBITMQ_USER, RABBITMQ_PASS)
+        port=RABBITMQ_PORT,
+        credentials=pika.PlainCredentials(RABBITMQ_USER, RABBITMQ_PASS),
+        heartbeat=30
     ))
 
     channel = connection.channel()
@@ -56,14 +59,15 @@ def setup(connection: pika.BlockingConnection):
                 Immediate action required!
             </h1>
             <h5>
-                <span th:text:"#{data.get("services").size()}"></span> services have not send a heartbeat in the last minute
+                <span th:text="${data.get('services').size()}"></span> services have not send a heartbeat in the last minute
             </h5>
 
             <ul>
-                <li th:each="service : ${data.get("services")}">
-                    <span th:text:"#{service.get("sender").asText()}></span>
+                <li th:each="service : ${data.get('services')}">
+                    <span th:text="${service.get('sender').asText()}"></span>
                     has been down since
-                    <span th:text:"#{service.get("last_seen").asText()}></span>
+                    <span th:text="${service.get('last_seen').asText()}"></span>
+                    
                 </li>
             </ul>
             """,

@@ -2,8 +2,9 @@ import logging
 from datetime import datetime
 
 import requests
+from requests.auth import HTTPBasicAuth
 
-from env import ELASTIC_URL, INDEX_NAME
+from env import ELASTIC_URL, INDEX_NAME, ELASTIC_PASSWORD
 
 
 def get_last_heartbeats() -> dict[str, datetime]:
@@ -36,7 +37,7 @@ def get_last_heartbeats() -> dict[str, datetime]:
     }
 
     try:
-        res = requests.post(f"{ELASTIC_URL}/{INDEX_NAME}/_search", json=query, timeout=10)
+        res = requests.post(f"{ELASTIC_URL}/{INDEX_NAME}/_search", json=query, timeout=10, auth=HTTPBasicAuth("elastic", ELASTIC_PASSWORD))
         res.raise_for_status()
         data = res.json()
         heartbeats = {}

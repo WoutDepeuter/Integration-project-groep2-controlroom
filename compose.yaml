@@ -119,14 +119,16 @@ services:
     depends_on:
       - elasticsearch
     environment:
-      - "ELASTIC_URL=http://elasticsearch:9200"
-      - "INDEX_NAME=heartbeat"
-      - "RABBITMQ_HOST=${RABBITMQ_HOST}"
-      - "RABBITMQ_PORT=${RABBITMQ_PORT}"
-      - "RABBITMQ_VHOST=${RABBITMQ_VHOST}"
-      - "RABBITMQ_USER=${RABBITMQ_USER}"
-      - "RABBITMQ_PASS=${RABBITMQ_PASS}"
-      - "ELASTIC_PASSWORD=${ELASTIC_PASSWORD}"
+      - ELASTIC_URL=http://elasticsearch:9200
+      - INDEX_NAME=heartbeat
+      - RABBITMQ_HOST=${RABBITMQ_HOST}
+      - RABBITMQ_PORT=${RABBITMQ_PORT}
+      - RABBITMQ_VHOST=${RABBITMQ_VHOST}
+      - RABBITMQ_USER=${RABBITMQ_USER}
+      - RABBITMQ_PASS=${RABBITMQ_PASS}
+      - ELASTIC_PASSWORD=${ELASTIC_PASSWORD}
+      - LOG_LEVEL=DEBUG
+      - ADMIN_EMAILS=${ADMIN_EMAILS}
     networks:
       - monitoring
       - attendify_net
