@@ -30,7 +30,7 @@ jobs:
       - name: Build and push container
         uses: docker/build-push-action@v5
         with:
-          context: ./extensions/hearbeat
+          context: ./extensions/heartbeat
           file: ./Dockerfile
           push: true
           tags: ghcr.io/woutdepeuter/integration-project-groep2-controlroom:latest
