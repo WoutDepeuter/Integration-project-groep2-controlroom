@@ -7,6 +7,8 @@ from env import ELASTIC_URL, INDEX_NAME
 
 
 def get_last_heartbeats() -> dict[str, datetime]:
+    logging.debug(f"Connecting to elasticsearch on URL: {ELASTIC_URL}")
+
     query = {
         "size": 0,
         "aggs": {
@@ -38,6 +40,7 @@ def get_last_heartbeats() -> dict[str, datetime]:
         res.raise_for_status()
         data = res.json()
         heartbeats = {}
+        logging.debug(f"Elasticsearch response data: {data}")
 
         for bucket in data["aggregations"]["apps"]["buckets"]:
             timestamp = bucket["last_seen"].get("value_as_string")

@@ -45,6 +45,7 @@ def send_alert(connection: pika.BlockingConnection, down_services: dict[str, dat
 def heartbeat_loop(connection: pika.BlockingConnection):
     logging.debug("Heartbeat monitor checking apps")
     heartbeats = get_last_heartbeats()
+    logging.debug(f"Received heartbeats from {list(heartbeats.keys())}")
     now = datetime.now(UTC)
 
     down_services: dict[str, datetime] = {}
