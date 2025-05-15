@@ -22,15 +22,16 @@ main() {
 
 git_pull() {
   echo "Pulling the latest changes from Git..."
-  if ! git pull origin main; then
-    echo "Error: Failed to pull changes from Git."
-    return 1
-  fi
+  GIT_PULL_OUTPUT=$(git pull origin main)
+  if [ $? -ne 0 ]; then
+      echo "Error: Failed to pull changes from Git."
+      return 1
+    fi
   return 0
 }
 
 check_changes_and_deploy() {
-  CHANGED_FILES=$(git diff --name-only HEAD^ HEAD)
+  CHANGED_FILES=$(echo "$GIT_PULL_OUTPUT" | awk '{if ($2 == "|") print $1}')
 
   if [ -z "$CHANGED_FILES" ]; then
     echo "No file changes detected."
