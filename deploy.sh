@@ -86,6 +86,7 @@ check_changes_and_deploy() {
         echo "- $SERVICE"
       done
 
+      docker compose pull "${SERVICES_TO_RESTART[@]}"
       docker compose up -d --build "${SERVICES_TO_RESTART[@]}"
 
       if [ $? -ne 0 ]; then

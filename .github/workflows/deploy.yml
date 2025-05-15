@@ -51,6 +51,6 @@ jobs:
           port: '60022'
           script: |
             cd ~/attendify/monitoring
-            curl -o /deploy.sh https://raw.githubusercontent.com/WoutDepeuter/Integration-project-groep2-controlroom/refs/heads/main/deploy.sh
+            curl -o ./deploy.sh https://raw.githubusercontent.com/WoutDepeuter/Integration-project-groep2-controlroom/refs/heads/main/deploy.sh
             chmod +x ./deploy.sh
             ./deploy.sh
