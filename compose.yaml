@@ -19,7 +19,7 @@ services:
       test: [ "CMD", "curl", "-f", "-u", "elastic:${ELASTIC_PASSWORD}", "-X", "GET", "http://localhost:9200/_cluster/health?wait_for_status=yellow&timeout=1s" ]
       interval: 5s
       timeout: 3s
-      retries: 10
+      retries: 20
 
   setup:
     image: appropriate/curl
