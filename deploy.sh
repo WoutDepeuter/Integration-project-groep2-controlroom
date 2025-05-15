@@ -1,7 +1,5 @@
 #!/bin/bash
 
-main()
-
 main() {
   git_pull
 
@@ -84,7 +82,9 @@ check_changes_and_deploy() {
   # Restart services
   if [ ${#SERVICES_TO_RESTART[@]} -gt 0 ]; then
       echo "Restarting the following services:"
-      for SERVICE in "${SERVICES_TO_RESTART[@]}"; do echo "- $SERVICE" done
+      for SERVICE in "${SERVICES_TO_RESTART[@]}"; do
+        echo "- $SERVICE"
+      done
 
       docker compose up -d --build "${SERVICES_TO_RESTART[@]}"
 
@@ -92,9 +92,12 @@ check_changes_and_deploy() {
         echo "Error: Failed to start some services."
         return 1
       fi
-    else
-      echo "No services need to be restarted."
-    fi
+
     return 0
+  fi
+
+  echo "No services need to be restarted."
+  return 0
 }
 
+main
