@@ -4,3 +4,4 @@
 heartbeat_monitor.log
 .venv
 __pycache__
+prod
