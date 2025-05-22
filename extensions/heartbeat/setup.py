@@ -50,7 +50,7 @@ def setup(connection: pika.BlockingConnection):
             "dto": {
                 "exchange": RABBITMQ_EXCHANGE,
                 "routingKey": RABBITMQ_ROUTING_KEY,
-                "version": 1, # DONT FORGET TO INCREMENT WHEN CHANGING TEMPLATE BELOW
+                "version": 2, # DONT FORGET TO INCREMENT WHEN CHANGING TEMPLATE BELOW
                 "displayName": "Services down: Heartbeat failed",
                 "contentType": "TEXT_HTML",
                 "subject": "Services down! Immediate action required",
@@ -58,16 +58,20 @@ def setup(connection: pika.BlockingConnection):
             <h1>
                 Immediate action required!
             </h1>
-            <h5>
+            <h5 th:if="${data.get('services').isArray()}">
                 <span th:text="${data.get('services').size()}"></span> services have not send a heartbeat in the last minute
             </h5>
+            
+            <h5 th:if="${!data.get('services').isArray()}">
+                <span th:text="${data.get('services').get('sender').asText()}"></span> has not send a heartbeat in the last minute. <br>
+                last seen <span th:text="${data.get('services').get('last_seen').asText()}"></span>
+            </h5>
 
-            <ul>
+            <ul th:if="${data.get('services').isArray()}" >
                 <li th:each="service : ${data.get('services')}">
                     <span th:text="${service.get('sender').asText()}"></span>
                     has been down since
                     <span th:text="${service.get('last_seen').asText()}"></span>
-                    
                 </li>
             </ul>
             """,
