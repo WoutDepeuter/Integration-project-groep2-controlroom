@@ -63,21 +63,15 @@ def setup(connection: pika.BlockingConnection):
             </h5>
             
             <h5 th:if="${!data.get('services').isArray()}">
-                <span th:text="${data.get('services').get('sender').asText()}"></span> has not send a heartbeat in the last minute
+                <span th:text="${data.get('services').get('sender').asText()}"></span> has not send a heartbeat in the last minute. <br>
+                last seen <span th:text="${data.get('services').get('last_seen').asText()}"></span>
             </h5>
 
-            <ul>
-                <li th:if="${data.get('services').isArray()}" 
-                    th:each="service : ${data.get('services')}">
+            <ul th:if="${data.get('services').isArray()}" >
+                <li th:each="service : ${data.get('services')}">
                     <span th:text="${service.get('sender').asText()}"></span>
                     has been down since
                     <span th:text="${service.get('last_seen').asText()}"></span>
-                </li>
-            
-                <li th:if="${!data.get('services').isArray()}">
-                    <span th:text="${data.get('services').get('sender').asText()}"></span>
-                    has been down since
-                    <span th:text="${data.get('services').get('last_seen').asText()}"></span>
                 </li>
             </ul>
             """,
