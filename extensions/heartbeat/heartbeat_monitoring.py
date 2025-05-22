@@ -29,8 +29,6 @@ previous_down_services = {}
 def send_alert(down_services: dict[str, datetime]):
 #def send_alert(connection: pika.BlockingConnection, down_services: dict[str, datetime]):
 
-    # TODO: Save current down services, and take diff (don't need to send an email every 10s if the same stuff stays down
-#    new_down = down_services
     global previous_down_services
 
     added = {}
@@ -59,12 +57,15 @@ def send_alert(down_services: dict[str, datetime]):
     if added == {}:
         logging.debug("No new services down, skipping alert")
         return
-        
+
+    if len(ADMIN_EMAILS) == 0:
+        logging.warning("ADMIN_EMAILS is empty, cannot send emails")
+        return
 
     # See template.dto.template for how I choose these values
     data = {
         'dto': {
-            'admins': [], # TODO: Get a list of all admin Ids OR emails!
+            'admins': ADMIN_EMAILS,
             'services': [
                 {
                     'sender': k,
@@ -115,8 +116,8 @@ def heartbeat_loop():
 
     down_services: dict[str, datetime] = {}
     for sender, last_seen in heartbeats.items():
-        if now - last_seen > timedelta(minutes=1):
-            logging.warning(f"Missing heartbeat from: {sender}")
+        if now - last_seen > timedelta(seconds=10):
+            logging.debug(f"Missing heartbeat from: {sender}")
             down_services[sender] = last_seen
         else:
             logging.debug(f"Received heartbeat in time: {sender}")
