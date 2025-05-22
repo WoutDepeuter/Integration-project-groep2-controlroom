@@ -1,5 +1,6 @@
 import logging
 import os
+import time
 
 from heartbeat_monitoring import heartbeat_loop
 from setup import setup, init_connection
@@ -20,6 +21,7 @@ def main():
     try:
         while True:
             heartbeat_loop()
+            time.sleep(10)
     except KeyboardInterrupt:
         pass
     finally:

@@ -7,7 +7,7 @@ from datetime import datetime, timedelta, UTC
 import xmltodict
 
 from elastic import get_last_heartbeats
-from env import RABBITMQ_HOST, RABBITMQ_USER, RABBITMQ_PASS, RABBITMQ_VHOST, RABBITMQ_PORT, RABBITMQ_EXCHANGE, RABBITMQ_ROUTING_KEY, RABBITMQ_CHANNEL
+from env import ADMIN_EMAILS, RABBITMQ_HOST, RABBITMQ_USER, RABBITMQ_PASS, RABBITMQ_VHOST, RABBITMQ_PORT, RABBITMQ_EXCHANGE, RABBITMQ_ROUTING_KEY, RABBITMQ_CHANNEL
 
 _connection = None
 
@@ -34,7 +34,6 @@ def get_connection():
 previous_down_services = {}
 
 def send_alert(down_services: dict[str, datetime]):
-#def send_alert(connection: pika.BlockingConnection, down_services: dict[str, datetime]):
 
     global previous_down_services
 
@@ -91,7 +90,6 @@ def send_alert(down_services: dict[str, datetime]):
         return
 
     try:
-        # TODO: Is it fine to open a new channel for this? Should I pass through the channel object instead?
         channel = connection.channel()
         channel.basic_publish(
             exchange=RABBITMQ_EXCHANGE,
@@ -114,10 +112,19 @@ def send_alert(down_services: dict[str, datetime]):
     except Exception:
         logging.exception("Error sending alert")
 
-#def heartbeat_loop(connection: pika.BlockingConnection):
 def heartbeat_loop():
     logging.debug("Heartbeat monitor checking apps")
-    heartbeats = get_last_heartbeats()
+
+    try:
+        heartbeats = get_last_heartbeats()
+    except Exception as e:
+        logging.error(f"Failed to fetch heartbeats from Elasticsearch: {e}")
+        return
+
+    if not heartbeats:
+        logging.warning("No heartbeats received — skipping alert to avoid false positives.")
+        return
+    
     logging.debug(f"Received heartbeats from {list(heartbeats.keys())}")
     now = datetime.now(UTC)
 
@@ -129,11 +136,9 @@ def heartbeat_loop():
         else:
             logging.debug(f"Received heartbeat in time: {sender}")
 
-    if len(down_services) > 0:
-#        send_alert(connection, down_services)
+    if down_services:
         send_alert(down_services)
-        pass
 
-    time.sleep(10)
+#    time.sleep(10) # I will put it on the main.py, I think it is better.
 
 
