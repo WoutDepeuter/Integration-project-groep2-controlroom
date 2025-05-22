@@ -19,7 +19,7 @@ def main():
     logging.info("Starting check loop, running every 10s")
     try:
         while True:
-            heartbeat_loop(connection)
+            heartbeat_loop()
     except KeyboardInterrupt:
         pass
     finally:

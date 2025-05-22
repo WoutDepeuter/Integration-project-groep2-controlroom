@@ -7,7 +7,7 @@ from datetime import datetime, timedelta, UTC
 import xmltodict
 
 from elastic import get_last_heartbeats
-from env import RABBITMQ_HOST, RABBITMQ_EXCHANGE, RABBITMQ_ROUTING_KEY, RABBITMQ_CHANNEL
+from env import RABBITMQ_HOST, RABBITMQ_USER, RABBITMQ_PASS, RABBITMQ_VHOST, RABBITMQ_PORT, RABBITMQ_EXCHANGE, RABBITMQ_ROUTING_KEY, RABBITMQ_CHANNEL
 
 _connection = None
 
@@ -16,7 +16,14 @@ def get_connection():
     try:
         if _connection is None or _connection.is_closed:
             logging.info("Connecting to RabbitMQ...")
-            parameters = pika.ConnectionParameters(host=RABBITMQ_HOST, heartbeat=60)
+            credentials = pika.PlainCredentials(RABBITMQ_USER, RABBITMQ_PASS)
+            parameters = pika.ConnectionParameters(
+                host=RABBITMQ_HOST,
+                port=RABBITMQ_PORT,
+                virtual_host=RABBITMQ_VHOST,
+                credentials=credentials,
+                heartbeat=60
+            )
             _connection = pika.BlockingConnection(parameters)
         return _connection
     except Exception as e:
