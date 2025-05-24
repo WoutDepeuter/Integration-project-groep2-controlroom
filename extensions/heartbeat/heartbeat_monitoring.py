@@ -10,44 +10,48 @@ from elastic import get_last_heartbeats
 from env import ADMIN_EMAILS, RABBITMQ_HOST, RABBITMQ_USER, RABBITMQ_PASS, RABBITMQ_VHOST, RABBITMQ_PORT, RABBITMQ_EXCHANGE, RABBITMQ_ROUTING_KEY, RABBITMQ_CHANNEL
 
 _connection = None
+previous_down_services = {}
+
+MAX_RETRIES = 3
+RETRY_DELAY = 5  # 5 seconds to try again
+MAX_MESSAGE_SIZE = 128 * 1024
+
 
 def get_connection():
     global _connection
-    try:
-        if _connection is None or _connection.is_closed:
-            logging.info("Connecting to RabbitMQ...")
-            credentials = pika.PlainCredentials(RABBITMQ_USER, RABBITMQ_PASS)
-            parameters = pika.ConnectionParameters(
-                host=RABBITMQ_HOST,
-                port=RABBITMQ_PORT,
-                virtual_host=RABBITMQ_VHOST,
-                credentials=credentials,
-                heartbeat=60
-            )
-            _connection = pika.BlockingConnection(parameters)
+    if _connection is not None:
+        if _connection.is_open:
+            return _connection
+        else:
+            try:
+                _connection.close()
+            except Exception:
+                pass
+            _connection = None
+
+    try:    
+        logging.info("Connecting to RabbitMQ...")
+        credentials = pika.PlainCredentials(RABBITMQ_USER, RABBITMQ_PASS)
+        parameters = pika.ConnectionParameters(
+            host=RABBITMQ_HOST,
+            port=RABBITMQ_PORT,
+            virtual_host=RABBITMQ_VHOST,
+            credentials=credentials,
+            heartbeat=60
+        )
+        _connection = pika.BlockingConnection(parameters)
         return _connection
     except Exception as e:
         logging.error(f"Could not connect to RabbitMQ: {e}")
         _connection = None
         return None
 
-previous_down_services = {}
-
 def send_alert(down_services: dict[str, datetime]):
 
     global previous_down_services
 
-    added = {}
-    removed = []
-
-    for service, last_seen in down_services.items():
-        if service not in previous_down_services:
-            added[service] = last_seen
-
-    for service in previous_down_services:
-        if service not in down_services:
-            removed.append(service)
-
+    added = {s: t for s, t in down_services.items() if s not in previous_down_services}
+    removed = [s for s in previous_down_services if s not in down_services]
 
     if not added and not removed:
         logging.debug("No changes in down services. Skipping alert.")
@@ -60,57 +64,89 @@ def send_alert(down_services: dict[str, datetime]):
 
     previous_down_services = down_services.copy()
 
-    if added == {}:
+    if not added:
         logging.debug("No new services down, skipping alert")
         return
 
-    if len(ADMIN_EMAILS) == 0:
+    if not ADMIN_EMAILS:
         logging.warning("ADMIN_EMAILS is empty, cannot send emails")
         return
 
     # See template.dto.template for how I choose these values
-    data = {
-        'dto': {
-            'admins': ADMIN_EMAILS,
-            'services': [
-                {
-                    'sender': k,
-                    'last_seen': v
-                } for k, v in down_services.items()
-            ]
+    try:
+        data = {
+            'dto': {
+                'admins': ADMIN_EMAILS,
+                'services': [
+                    {
+                        'sender': k,
+                        'last_seen': v
+                    } for k, v in down_services.items()
+                ]
+            }
         }
-    }
 
-    xml_str = xmltodict.unparse(data, pretty=True)
-    logging.debug("Heartbeat mail dto \n%s", xml_str)
-
-    connection = get_connection()
-    if connection is None:
-        logging.error("No connection with RabbitMQ, It skips sending the alert")
+        xml_str = xmltodict.unparse(data, pretty=True)
+        logging.debug("Heartbeat mail dto \n%s", xml_str)
+    except Exception as e:
+        logging.error(f"Failed to generate XML alert: {e}")
+        return   
+    if len(xml_str.encode('utf-8')) > MAX_MESSAGE_SIZE:
+        logging.error("Generated alert exceeds max size for RabbitMQ, skipping send.")
         return
 
-    try:
-        channel = connection.channel()
-        channel.basic_publish(
-            exchange=RABBITMQ_EXCHANGE,
-            routing_key=RABBITMQ_ROUTING_KEY,
-            body=xml_str,
-        )
-    except pika.exceptions.StreamLostError:
-        logging.warning("Connection lost during the sending, trying again...")
-        connection.close()
+    _publish_with_retry(xml_str)
+
+def _publish_with_retry(xml_str):
+    global _connection
+
+    for attempt in range(1, MAX_RETRIES + 1):
         connection = get_connection()
-        if connection:
+        if not connection:
+            logging.warning(f"Retry {attempt}/{MAX_RETRIES}: Failed to connect to RabbitMQ.")
+            time.sleep(RETRY_DELAY * attempt)
+            continue
+
+        channel = None
+        try:
             channel = connection.channel()
             channel.basic_publish(
                 exchange=RABBITMQ_EXCHANGE,
                 routing_key=RABBITMQ_ROUTING_KEY,
                 body=xml_str,
             )
-        else:
-            logging.error("Could not reconnect to send the message")
-    except Exception:
-        logging.exception("Error sending alert")
+            logging.info("Alert sent successfully")
+            return
+        except pika.exceptions.AMQPError as e:
+            logging.warning(f"Retry {attempt}/{MAX_RETRIES}: Failed to publish alert: {e}")
+
+            try:
+                if connection.is_open:
+                    connection.close()
+            except Exception:
+                pass
+            _connection = None
+
+        except Exception as e:
+            logging.exception(f"Unexpected error during alert publish: {e}")
+
+            try:
+                if connection.is_open:
+                    connection.close()
+            except Exception:
+                pass
+            _connection = None
+            
+        finally:
+            if channel:
+                try:
+                    channel.close()
+                except Exception:
+                    pass
+
+        time.sleep(RETRY_DELAY * attempt)
+
+    logging.error("Failed to send alert after multiple retries.")
 
 def heartbeat_loop():
     logging.debug("Heartbeat monitor checking apps")
@@ -128,11 +164,15 @@ def heartbeat_loop():
     logging.debug(f"Received heartbeats from {list(heartbeats.keys())}")
     now = datetime.now(UTC)
 
-    down_services: dict[str, datetime] = {}
-    for sender, last_seen in heartbeats.items():
-        if now - last_seen > timedelta(seconds=10):
+    down_services = {
+        sender: last_seen
+        for sender, last_seen in heartbeats.items()
+        if now - last_seen > timedelta(seconds=10)
+    }
+
+    for sender in heartbeats:
+        if sender in down_services:
             logging.debug(f"Missing heartbeat from: {sender}")
-            down_services[sender] = last_seen
         else:
             logging.debug(f"Received heartbeat in time: {sender}")
 
@@ -140,5 +180,3 @@ def heartbeat_loop():
         send_alert(down_services)
 
 #    time.sleep(10) # I will put it on the main.py, I think it is better.
-
-
