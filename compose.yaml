@@ -116,6 +116,7 @@ services:
 
   heartbeat-monitor:
     image: ghcr.io/woutdepeuter/integration-project-groep2-controlroom:latest
+    restart: always
     depends_on:
       - elasticsearch
     environment:
